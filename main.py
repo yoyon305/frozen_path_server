@@ -1,14 +1,19 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Forces server to talk to itch.io
+
 # --- DATABASE (In-Memory) ---
-# This resets if the server restarts. 
-# For a real permanent DB, you'd need a file or database connection, 
-# but this is perfect for a first test.
 LEADERBOARD_DATA = {}
+
+# --- THE BRUTE FORCE CORS FIX ---
+# במקום להסתמך על ספרייה, אנחנו מזריקים את האישור ידנית לכל תשובה.
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 @app.route('/')
 def home():
@@ -23,8 +28,6 @@ def submit_score():
     if not name or score is None:
         return jsonify({"error": "Missing data"}), 400
 
-    # LOGIC: Only update if the new score is HIGHER
-    # We treat the input as "Total Stars"
     current_score = LEADERBOARD_DATA.get(name, 0)
     
     if score > current_score:
@@ -35,7 +38,6 @@ def submit_score():
 
 @app.route('/leaderboard', methods=['GET'])
 def get_leaderboard():
-    # Sort by score (descending) and return top 10
     sorted_scores = sorted(
         [{"name": k, "score": v} for k, v in LEADERBOARD_DATA.items()],
         key=lambda x: x['score'],
@@ -45,6 +47,4 @@ def get_leaderboard():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
-
     app.run(host='0.0.0.0', port=port)
-
