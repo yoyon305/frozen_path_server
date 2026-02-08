@@ -3,8 +3,7 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app)  # Allows your game to talk to this server
-
+CORS(app, resources={r"/*": {"origins": "*"}})  # Forces server to talk to itch.io
 # --- DATABASE (In-Memory) ---
 # This resets if the server restarts. 
 # For a real permanent DB, you'd need a file or database connection, 
@@ -48,3 +47,4 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
 
     app.run(host='0.0.0.0', port=port)
+
