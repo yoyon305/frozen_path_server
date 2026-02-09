@@ -4,13 +4,16 @@ import os
 app = Flask(__name__)
 
 # --- CONFIG ---
-# זו הסיסמה הסודית שלך. תשנה אותה למשהו שרק אתה יודע!
+# זו הסיסמה הסודית שלך לניהול.
+# תשנה את זה למשהו שרק אתה יודע!
 ADMIN_KEY = "yonatan123" 
 
-# --- DATABASE ---
+# --- DATABASE (In-Memory) ---
+# הנתונים נשמרים בזיכרון. אם השרת עושה ריסטארט, זה מתאפס.
 LEADERBOARD_DATA = {}
 
-# --- CORS FIX (התיקון שעשינו קודם) ---
+# --- CORS FIX (התיקון הקריטי ל-itch.io) ---
+# זה מוסיף את האישור לכל תשובה שהשרת שולח
 @app.after_request
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -22,7 +25,7 @@ def after_request(response):
 def home():
     return "Frozen Path Leaderboard is Alive!"
 
-# --- PUBLIC ROUTES (למשחק) ---
+# --- PUBLIC ROUTES (המשחק משתמש בזה) ---
 
 @app.route('/submit', methods=['POST'])
 def submit_score():
@@ -33,12 +36,20 @@ def submit_score():
     if not name or score is None:
         return jsonify({"error": "Missing data"}), 400
 
+    # --- ההגנה שביקשת ---
+    # 1. קבל את הניקוד הנוכחי של השחקן (0 אם הוא חדש)
     current_score = LEADERBOARD_DATA.get(name, 0)
+    
+    # 2. עדכן רק אם הניקוד החדש גבוה יותר!
+    # אם User1 מנסה לשלוח 1 כוכב אבל יש לו כבר 50, השרת יתעלם מזה.
     if score > current_score:
         LEADERBOARD_DATA[name] = score
         print(f"Updated {name} to {score}")
+        return jsonify({"status": "success", "new_high_score": score})
     
-    return jsonify({"status": "success"})
+    else:
+        print(f"Ignored score {score} for {name} (Current is {current_score})")
+        return jsonify({"status": "ignored", "current_high_score": current_score})
 
 @app.route('/leaderboard', methods=['GET'])
 def get_leaderboard():
@@ -50,10 +61,10 @@ def get_leaderboard():
     )
     return jsonify(sorted_scores[:10])
 
-# --- ADMIN ROUTES (רק לך) ---
+# --- ADMIN ROUTES (רק לך - דרך הדפדפן) ---
 
-# 1. מחיקת שחקן ספציפי
-# שימוש בדפדפן: /admin/delete?name=BadGuy&key=yonatan123
+# כדי למחוק שחקן ספציפי:
+# https://YOUR-URL/admin/delete?name=BadGuy&key=yonatan123
 @app.route('/admin/delete', methods=['GET'])
 def delete_player():
     key = request.args.get('key')
@@ -68,8 +79,8 @@ def delete_player():
     else:
         return f"Player {name} not found."
 
-# 2. איפוס מלא של הטבלה
-# שימוש בדפדפן: /admin/reset?key=yonatan123
+# כדי לאפס את כל הטבלה:
+# https://YOUR-URL/admin/reset?key=yonatan123
 @app.route('/admin/reset', methods=['GET'])
 def reset_leaderboard():
     key = request.args.get('key')
@@ -80,7 +91,8 @@ def reset_leaderboard():
     LEADERBOARD_DATA.clear()
     return "Leaderboard has been wiped clean."
 
-# 3. צפייה בכל הנתונים (כולל אלו שלא בטופ 10)
+# כדי לראות את כל הנתונים (כולל אלו שלא בטופ 10):
+# https://YOUR-URL/admin/dump?key=yonatan123
 @app.route('/admin/dump', methods=['GET'])
 def dump_data():
     key = request.args.get('key')
