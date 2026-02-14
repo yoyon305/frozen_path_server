@@ -128,7 +128,7 @@ def get_leaderboard():
             key=lambda x: x['score'],
             reverse=True
         )
-        return jsonify(sorted_scores[:10])
+        return jsonify(sorted_scores)
     except Exception as e:
         print(f"DEBUG: Sort Error: {e}", flush=True)
         return jsonify([])
@@ -144,3 +144,4 @@ def reset_leaderboard():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
